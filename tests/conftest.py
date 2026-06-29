@@ -23,9 +23,15 @@ def empty_html() -> str:
 
 
 @pytest.fixture(autouse=True)
-def _clear_cache():
+def _test_environment():
+    # Force the httpx backend so respx can intercept; clear the cache around each
+    # test so cached responses don't leak between cases.
+    from app.config import settings
     from app.service import clear_cache
 
+    previous_backend = settings.http_backend
+    settings.http_backend = "httpx"
     clear_cache()
     yield
+    settings.http_backend = previous_backend
     clear_cache()

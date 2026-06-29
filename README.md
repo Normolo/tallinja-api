@@ -93,6 +93,28 @@ See `app/config.py`.
 
 ## Parser & markup
 
+### Fetching (TLS fingerprinting)
+
+The origin runs bot protection that **fingerprints the TLS client (JA3)**: it
+lets `curl` through but tarpits Python's `httpx` — the TLS handshake completes,
+the request is sent, and the response is simply never returned (a read timeout).
+Sending browser-like headers does **not** help, because the block is at the TLS
+layer, not the HTTP layer.
+
+So the fetcher has two backends (`TALLINJA_HTTP_BACKEND`):
+
+| Value | Behaviour |
+|-------|-----------|
+| `auto` (default) | use the `curl` binary if present, else `httpx` |
+| `curl` | always shell out to `curl` (works against the live origin) |
+| `httpx` | always use `httpx` (used by tests; tarpitted by the live origin) |
+
+For real traffic keep the default and make sure `curl` is installed. If you must
+use a pure-Python client, swap in [`curl_cffi`](https://github.com/lexiforest/curl_cffi)
+(`impersonate="chrome"`) which mimics a browser's TLS fingerprint.
+
+### Parser & markup
+
 `app/parser.py` targets the **real** page markup, captured in
 `tests/fixtures/stop_1090.html`. The board is server-rendered HTML (Express),
 so no headless browser is needed. The relevant elements:

@@ -37,6 +37,14 @@ class Settings(BaseSettings):
     # Real-time data churns quickly, but we should not hammer the origin once per request.
     cache_ttl_seconds: float = 25.0
 
+    # HTTP backend used to fetch the board:
+    #   "auto"  - use the curl binary when available, else httpx
+    #   "curl"  - always shell out to curl
+    #   "httpx" - always use httpx (used by the test suite)
+    # The origin fingerprints TLS clients (JA3) and tarpits Python's httpx while
+    # allowing curl, so curl is preferred for real traffic.
+    http_backend: str = "auto"
+
     # Accepted stop codes are short numeric strings. Reject anything else early.
     stop_code_pattern: str = r"^\d{3,6}$"
 
