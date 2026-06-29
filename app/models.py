@@ -1,4 +1,9 @@
-"""Pydantic models describing the normalized API responses."""
+"""Pydantic models describing the normalized API responses.
+
+Field shapes mirror what the "My Next Bus" board actually displays: relative
+times ("6 min", "+30 min") rather than clock times, and a full line name per
+route. See ``app/parser.py`` for how these map onto the page markup.
+"""
 
 from __future__ import annotations
 
@@ -8,19 +13,33 @@ from pydantic import BaseModel, Field
 
 
 class Departure(BaseModel):
-    """A single upcoming departure from a stop, as shown on the timetable board."""
+    """A single upcoming departure from a stop, as shown on the board."""
 
-    route: str = Field(..., description="Route number / short name, e.g. '13'")
-    destination: str | None = Field(None, description="Headsign / where the bus is going")
-    scheduled: str | None = Field(None, description="Scheduled time as shown, 'HH:MM'")
-    estimated: str | None = Field(None, description="Real-time estimated time, 'HH:MM' if present")
-    minutes_away: int | None = Field(None, description="Minutes until departure, if the board shows it")
-    realtime: bool = Field(False, description="True when a live/estimated time was provided")
+    route: str = Field(..., description="Route number / short name, e.g. '31', 'N40', 'TD12'")
+    line_name: str | None = Field(
+        None, description="Full line name as shown, e.g. 'Valletta - Bugibba'"
+    )
+    minutes_away: int | None = Field(
+        None,
+        description=(
+            "Exact minutes until departure when the board shows a precise value "
+            "(e.g. 6). Null when the board only shows a lower bound like '+30 min'."
+        ),
+    )
+    display_time: str | None = Field(
+        None, description="Time text exactly as displayed, e.g. '6 min' or '+30 min'"
+    )
+    realtime: bool = Field(
+        False, description="True when this departure is live GPS-tracked (active row)"
+    )
+    following_time: str | None = Field(
+        None, description="Time of the departure after next, when shown (e.g. '+30 min')"
+    )
 
 
 class Stop(BaseModel):
     code: str = Field(..., description="Public stop code (the 'bus_stop' query value)")
-    name: str | None = Field(None, description="Human-readable stop name, if present on the page")
+    name: str | None = Field(None, description="Human-readable stop name, e.g. 'Naxxar'")
 
 
 class DeparturesResponse(BaseModel):

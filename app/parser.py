@@ -1,41 +1,36 @@
-"""Parses a Tallinja stop timetable board (HTML) into normalized departures.
+"""Parses the Tallinja "My Next Bus" board (HTML) into normalized departures.
 
-------------------------------------------------------------------------------
-VERIFICATION NOTE
-------------------------------------------------------------------------------
-This parser targets the *documented* structure of the public board at
-``service-information.publictransport.com.mt/timetable?bus_stop=<code>`` — a
-lightweight, server-rendered page (the one behind the QR codes on bus-stop
-signage) listing, per route: route number, destination, and a scheduled and/or
-estimated time.
+Targets the real markup of ``service-information.publictransport.com.mt/timetable``
+(captured in ``tests/fixtures/stop_1090.html``). Structure:
 
-That host is blocked by this build environment's egress policy, so the exact
-markup (table vs. div, class names) could not be confirmed against the live
-page. The extraction is therefore deliberately *layout-tolerant*: it works off
-text patterns (route tokens, ``HH:MM`` times, ``N min``) rather than brittle
-selectors, and the few structural assumptions are the constants below.
+    <div class="station-text"><h1>Naxxar - 1090</h1></div>      # "<name> - <code>"
 
-To finalize against the real page: fetch one stop's HTML, drop it into
-``tests/fixtures/`` and tighten ``_iter_departure_rows`` / ``_extract_stop_name``.
-The public surface (``parse_board``) and its return types should not change.
-------------------------------------------------------------------------------
+    <div class="line-item">
+      <div class="line_icon" id="l31"><p class="line-number">31</p></div>
+      <div class="line-name-container"><h2>Valletta - Bugibba</h2></div>
+      <div class="line-time-container-active">                  # "-active" => live GPS
+        <lord-icon .../>
+        <h4>6 min</h4>                                         # next departure
+        <h5>+30 min</h5>                                       # the one after
+      </div>
+    </div>
+
+Non-tracked rows use ``<div class="line-time-container">`` with a single
+``<h4>`` whose text is a lower bound like ``+30 min`` (meaning "more than 30
+minutes away" — not an exact value, so ``minutes_away`` stays null there).
 """
 
 from __future__ import annotations
 
 import re
 
-from bs4 import BeautifulSoup, Tag
+from bs4 import BeautifulSoup
 
 from .errors import ParseError
 from .models import Departure, Stop
 
-# --- Text patterns (origin-agnostic) -----------------------------------------
-
-_TIME_RE = re.compile(r"\b(?:[01]?\d|2[0-3]):[0-5]\d\b")
-# Route short-names in Malta: "13", "X1", "TD2", "N13", "202", "511".
-_ROUTE_RE = re.compile(r"^[A-Z]{0,3}\d{1,3}[A-Z]?$")
-_MINUTES_RE = re.compile(r"\b(\d{1,3})\s*min", re.IGNORECASE)
+# Exact minutes only when there is no leading "+": "6 min" -> 6, "+30 min" -> bound.
+_MINUTES_RE = re.compile(r"^\s*(\+)?\s*(\d+)\s*min", re.IGNORECASE)
 _DUE_RE = re.compile(r"\b(due|now|arriving)\b", re.IGNORECASE)
 
 
@@ -43,136 +38,78 @@ def _clean(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
-def _extract_stop_name(soup: BeautifulSoup, stop_code: str) -> str | None:
-    """Best-effort stop name from the page heading / title.
-
-    Adjust here once the real markup is known (e.g. a specific ``<h1 class=...>``).
-    """
-    for selector in ("h1", "h2", ".stop-name", "#stop-name", "title"):
-        el = soup.select_one(selector)
-        if not el:
-            continue
+def _extract_stop(soup: BeautifulSoup, stop_code: str) -> Stop:
+    """Stop name from ``.station-text h1`` (``"<name> - <code>"``)."""
+    name: str | None = None
+    el = soup.select_one(".station-text h1")
+    if el is not None:
         text = _clean(el.get_text())
-        if not text:
-            continue
-        # Strip a leading "1090 - " / "Stop 1090:" style prefix if present.
-        text = re.sub(rf"^\W*(?:stop\s*)?{re.escape(stop_code)}\s*[-:–]\s*", "", text, flags=re.I)
-        text = re.sub(r"\s*[-–|]\s*(tallinja|malta public transport).*$", "", text, flags=re.I)
-        if text and text.lower() not in {"timetable", stop_code.lower()}:
-            return text
+        # Drop the trailing " - 1090" code suffix to leave just the name.
+        text = re.sub(rf"\s*[-–]\s*{re.escape(stop_code)}\s*$", "", text)
+        name = text or None
+    return Stop(code=stop_code, name=name)
+
+
+def _parse_minutes(display_time: str | None) -> int | None:
+    if not display_time:
+        return None
+    if _DUE_RE.search(display_time):
+        return 0
+    m = _MINUTES_RE.match(display_time)
+    if m and not m.group(1):  # exact value, no leading "+"
+        return int(m.group(2))
     return None
 
 
-def _iter_departure_rows(soup: BeautifulSoup) -> list[list[str]]:
-    """Yield each departure as an ordered list of cell texts.
-
-    Tries a table layout first, then falls back to repeated list/row containers.
-    This is the main spot to tighten once the live markup is confirmed.
-    """
-    rows: list[list[str]] = []
-
-    # 1) Table layout: each <tr> with <td>s is a candidate departure.
-    for tr in soup.select("table tr"):
-        cells = [_clean(td.get_text()) for td in tr.find_all(["td", "th"])]
-        cells = [c for c in cells if c]
-        if cells:
-            rows.append(cells)
-
-    if rows:
-        return rows
-
-    # 2) Generic repeated-container layout (div/li rows).
-    for container in soup.select(
-        ".departure, .departure-row, .timetable-row, li.route, .route-row"
-    ):
-        cells = _row_cells_from_container(container)
-        if cells:
-            rows.append(cells)
-
-    return rows
-
-
-def _row_cells_from_container(container: Tag) -> list[str]:
-    """Pull pseudo-cells out of a non-table row by reading its child elements."""
-    parts = [_clean(child.get_text()) for child in container.find_all(recursive=False)]
-    parts = [p for p in parts if p]
-    if parts:
-        return parts
-    text = _clean(container.get_text())
-    return [text] if text else []
-
-
-def _row_to_departure(cells: list[str]) -> Departure | None:
-    """Interpret a row's cells into a Departure, or ``None`` if it isn't one."""
-    joined = " ".join(cells)
-
-    route = _find_route(cells)
-    if route is None:
+def _parse_line_item(item) -> Departure | None:
+    route_el = item.select_one(".line-number")
+    if route_el is None:
+        return None
+    route = _clean(route_el.get_text())
+    if not route:
         return None
 
-    times = _TIME_RE.findall(joined)
-    scheduled = times[0] if times else None
-    estimated = times[1] if len(times) > 1 else None
+    name_el = item.select_one(".line-name-container h2")
+    line_name = _clean(name_el.get_text()) if name_el else None
 
-    minutes: int | None = None
-    if (m := _MINUTES_RE.search(joined)) is not None:
-        minutes = int(m.group(1))
-    elif _DUE_RE.search(joined):
-        minutes = 0
+    active = item.select_one(".line-time-container-active")
+    container = active or item.select_one(".line-time-container")
+    realtime = active is not None
 
-    realtime = estimated is not None or minutes is not None
-    destination = _find_destination(cells, route, times)
+    display_time: str | None = None
+    following_time: str | None = None
+    if container is not None:
+        h4 = container.find("h4")
+        h5 = container.find("h5")
+        display_time = _clean(h4.get_text()) if h4 else None
+        following_time = _clean(h5.get_text()) if h5 else None
 
     return Departure(
         route=route,
-        destination=destination,
-        scheduled=scheduled,
-        estimated=estimated,
-        minutes_away=minutes,
+        line_name=line_name,
+        minutes_away=_parse_minutes(display_time),
+        display_time=display_time,
         realtime=realtime,
+        following_time=following_time,
     )
-
-
-def _find_route(cells: list[str]) -> str | None:
-    for cell in cells:
-        token = cell.strip()
-        if _ROUTE_RE.match(token):
-            return token
-    return None
-
-
-def _find_destination(cells: list[str], route: str, times: list[str]) -> str | None:
-    """The destination is the longest non-route, non-time cell."""
-    candidates: list[str] = []
-    for cell in cells:
-        c = cell.strip()
-        if not c or c == route or _ROUTE_RE.match(c):
-            continue
-        if c in times or _TIME_RE.fullmatch(c) or _MINUTES_RE.fullmatch(c):
-            continue
-        candidates.append(c)
-    if not candidates:
-        return None
-    return max(candidates, key=len)
 
 
 def parse_board(html: str, stop_code: str) -> tuple[Stop, list[Departure]]:
     """Parse board HTML into a ``Stop`` and its departures.
 
-    An empty board (stop exists but nothing scheduled) yields an empty list — it
-    is *not* an error. A ``ParseError`` is raised only when the HTML can't be
-    parsed at all.
+    An empty board (stop exists but no lines listed) yields an empty list — that
+    is not an error. ``ParseError`` is raised only if the HTML can't be parsed.
     """
     try:
         soup = BeautifulSoup(html, "lxml")
     except Exception as exc:  # pragma: no cover - lxml rarely fails outright
         raise ParseError(f"Could not parse board HTML: {exc}") from exc
 
-    stop = Stop(code=stop_code, name=_extract_stop_name(soup, stop_code))
+    stop = _extract_stop(soup, stop_code)
 
     departures: list[Departure] = []
-    for cells in _iter_departure_rows(soup):
-        departure = _row_to_departure(cells)
+    for item in soup.select(".line-item"):
+        departure = _parse_line_item(item)
         if departure is not None:
             departures.append(departure)
 

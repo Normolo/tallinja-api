@@ -29,9 +29,11 @@ def test_departures_happy_path(board_html):
     assert resp.status_code == 200
     body = resp.json()
     assert body["stop"]["code"] == "1090"
+    assert body["stop"]["name"] == "Naxxar"
     assert body["cached"] is False
-    assert len(body["departures"]) == 4
-    assert body["departures"][0]["route"] == "13"
+    assert len(body["departures"]) == 11
+    assert body["departures"][0]["route"] == "31"
+    assert body["departures"][0]["minutes_away"] == 6
 
 
 @respx.mock

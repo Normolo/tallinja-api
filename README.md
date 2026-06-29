@@ -39,21 +39,34 @@ curl http://localhost:8000/api/v1/stops/1090/departures
 
 ```jsonc
 {
-  "stop": { "code": "1090", "name": "Valletta, Bus Terminus" },
+  "stop": { "code": "1090", "name": "Naxxar" },
   "retrieved_at": "2026-06-29T20:40:00Z",
   "cached": false,
   "departures": [
     {
-      "route": "13",
-      "destination": "Marsa",
-      "scheduled": "20:48",
-      "estimated": "20:51",
-      "minutes_away": null,
-      "realtime": true
+      "route": "31",
+      "line_name": "Valletta - Bugibba",
+      "minutes_away": 6,            // exact when live-tracked
+      "display_time": "6 min",     // text exactly as shown on the board
+      "realtime": true,            // green "active" row = live GPS
+      "following_time": "+30 min"  // the departure after next, when shown
+    },
+    {
+      "route": "103",
+      "line_name": "Pembroke - Bidnija",
+      "minutes_away": null,        // "+30 min" is a lower bound, not exact
+      "display_time": "+30 min",
+      "realtime": false,
+      "following_time": null
     }
   ]
 }
 ```
+
+> The board shows **relative** times ("6 min", "+30 min"), not clock times.
+> `+30 min` means "more than 30 minutes away", so `minutes_away` is `null` there
+> while `display_time` preserves the exact text. `line_name` is the route's full
+> name as displayed (both termini), not a single destination.
 
 Errors share one shape: `{ "error": "<code>", "detail": "<message>" }` with
 `invalid_stop_code` (400), `stop_not_found` (404), and `upstream_unavailable` /
@@ -70,20 +83,32 @@ uvicorn app.main:app --reload
 Configuration is via env vars (prefix `TALLINJA_`), e.g. `TALLINJA_CACHE_TTL_SECONDS=10`.
 See `app/config.py`.
 
-## Verifying the parser ⚠️
+## Parser & markup
 
-The parser in `app/parser.py` targets the *documented* board structure (route •
-destination • scheduled/estimated time). The build environment used to create
-this project **cannot reach the origin host** (egress policy), so the exact live
-markup was not confirmed. The extraction is therefore **layout-tolerant** — it
-works off text patterns (route tokens, `HH:MM`, `N min`, "Due") rather than
-brittle CSS selectors.
+`app/parser.py` targets the **real** page markup, captured in
+`tests/fixtures/stop_1090.html`. The board is server-rendered HTML (Express),
+so no headless browser is needed. The relevant elements:
 
-To lock it to production:
+| Data | Selector |
+|------|----------|
+| Stop name + code | `.station-text h1` → `"Naxxar - 1090"` |
+| Departure row | `div.line-item` |
+| Route number | `.line-number` (e.g. `31`, `N40`, `S30`, `TD12`) |
+| Line name | `.line-name-container h2` |
+| Live time | `.line-time-container-active` → `h4` (next), `h5` (following) |
+| Static time | `.line-time-container` → `h4` (lower bound, e.g. `+30 min`) |
 
-1. Save a real page: `curl 'https://service-information.publictransport.com.mt/timetable?bus_stop=1090' > tests/fixtures/stop_1090.html`
-2. Run `pytest` and adjust `_iter_departure_rows` / `_extract_stop_name` if needed.
-3. The public function `parse_board(html, code)` and its return types stay the same.
+If the origin changes its markup, update the selectors in `_extract_stop` /
+`_parse_line_item`; `parse_board(html, code)` and the response types stay the
+same. To refresh the fixture from production:
+
+```bash
+mkdir -p tests/fixtures
+curl -sS -A "Mozilla/5.0 ... Chrome/124.0 Safari/537.36" \
+  "https://service-information.publictransport.com.mt/timetable?bus_stop=1090" \
+  -o tests/fixtures/stop_1090.html
+pytest
+```
 
 ## Tests
 

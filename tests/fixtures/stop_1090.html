@@ -1,23 +1,195 @@
-<!doctype html>
-<!--
-  Representative sample of the assumed board structure for ?bus_stop=1090.
-  This is a stand-in until the live HTML (egress-blocked in CI) is captured.
-  Replace with a real saved page to lock the parser to production markup.
--->
-<html lang="en">
-<head><title>1090 - Valletta, Bus Terminus | Tallinja</title></head>
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8" http-equiv="refresh" content="60">
+    <link href="/css/main.css" rel="stylesheet" type="text/css">
+    <link href="/css/lines.css" rel="stylesheet" type="text/css">
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.1.0/css/all.css" integrity="sha384-lKuwvrZot6UHsBSfcMvOkWwlCMgc0TaWr+30HWe3a4ltaBwTZhyTEggF5tJv8tbt" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css?family=Dosis&display=swap" rel="stylesheet">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.1/jquery.min.js"></script>
+    <title>My next bus</title>
+</head>
+<header>
+  <div id="overlay_header" class="blur-in">
+    <div class="toolbar" role="banner">
+      <h1 class="title">My Next Bus</h1>
+    </div>
+  </div>
+</header>
 <body>
-  <h1>1090 - Valletta, Bus Terminus</h1>
-  <table class="timetable">
-    <thead>
-      <tr><th>Route</th><th>Destination</th><th>Scheduled</th><th>Estimated</th></tr>
-    </thead>
-    <tbody>
-      <tr><td>13</td><td>Marsa</td><td>20:48</td><td>20:51</td></tr>
-      <tr><td>X1</td><td>Airport</td><td>20:55</td><td></td></tr>
-      <tr><td>202</td><td>Mater Dei Hospital</td><td>21:02</td><td>Due</td></tr>
-      <tr><td>TD2</td><td>Sliema Ferries</td><td>21:10</td><td>9 min</td></tr>
-    </tbody>
-  </table>
+  <div id="overlay_body" class="cover blur-in">
+    <div class="content" role="main">
+
+      <div class="bus-list">
+
+        <div class="station-item">
+          <div class="station-icon">
+            <i class="fas fa-bus"></i>
+          </div>
+          <div class="station-text">
+            <h1 >Naxxar - 1090</h1>
+          </div>
+        </div>
+        <hr class="dashed">
+
+
+          <div class="line-item">
+            <div class="line_icon" id="l31">
+              <p class="line-number">31</p>
+            </div>
+            <div class="line-name-container">
+              <h2> Valletta - Bugibba</h2>
+              <h3 class="stopSubtitle"></h3>
+            </div>
+            <div class="line-time-container-active">
+              <lord-icon
+              src="https://cdn.lordicon.com/yzctygpq.json"
+              trigger="loop"
+              colors="primary:#66ee78,secondary:#66ee78"
+              stroke="100"
+              style="width:25px;height:25px; padding: 0%; margin: 0%;">
+              </lord-icon>
+              <h4> 6 min</h4>
+              <h5>+30 min</h5>
+            </div>
+          </div>
+          <hr class="dashed">
+
+
+
+          <div class="line-item">
+            <div class="line_icon" id="l103">
+              <p class="line-number">103</p>
+            </div>
+            <div class="line-name-container">
+              <h2> Pembroke - Bidnija</h2>
+            </div>
+            <div class="line-time-container">
+              <h4> +30 min</h4>
+            </div>
+          </div>
+          <hr class="dashed">
+
+          <div class="line-item">
+            <div class="line_icon" id="l202">
+              <p class="line-number">202</p>
+            </div>
+            <div class="line-name-container">
+              <h2> Rabat - San Giljan</h2>
+            </div>
+            <div class="line-time-container">
+              <h4> +30 min</h4>
+            </div>
+          </div>
+          <hr class="dashed">
+
+          <div class="line-item">
+            <div class="line_icon" id="l203">
+              <p class="line-number">203</p>
+            </div>
+            <div class="line-name-container">
+              <h2> Sliema - Bugibba</h2>
+            </div>
+            <div class="line-time-container">
+              <h4> +30 min</h4>
+            </div>
+          </div>
+          <hr class="dashed">
+
+          <div class="line-item">
+            <div class="line_icon" id="l238">
+              <p class="line-number">238</p>
+            </div>
+            <div class="line-name-container">
+              <h2> Valletta - Mgarr</h2>
+            </div>
+            <div class="line-time-container">
+              <h4> +30 min</h4>
+            </div>
+          </div>
+          <hr class="dashed">
+
+          <div class="line-item">
+            <div class="line_icon" id="l260">
+              <p class="line-number">260</p>
+            </div>
+            <div class="line-name-container">
+              <h2> Valletta - Gharghur</h2>
+            </div>
+            <div class="line-time-container">
+              <h4> +30 min</h4>
+            </div>
+          </div>
+          <hr class="dashed">
+
+          <div class="line-item">
+            <div class="line_icon" id="l46">
+              <p class="line-number">46</p>
+            </div>
+            <div class="line-name-container">
+              <h2> Valletta - Gharghur</h2>
+            </div>
+            <div class="line-time-container">
+              <h4> +30 min</h4>
+            </div>
+          </div>
+          <hr class="dashed">
+
+          <div class="line-item">
+            <div class="line_icon" id="l49">
+              <p class="line-number">49</p>
+            </div>
+            <div class="line-name-container">
+              <h2> Valletta - Armier</h2>
+            </div>
+            <div class="line-time-container">
+              <h4> +30 min</h4>
+            </div>
+          </div>
+          <hr class="dashed">
+
+          <div class="line-item">
+            <div class="line_icon" id="lN40">
+              <p class="line-number">N40</p>
+            </div>
+            <div class="line-name-container">
+              <h2> San Giljan - Mosta - San Giljan</h2>
+            </div>
+            <div class="line-time-container">
+              <h4> +30 min</h4>
+            </div>
+          </div>
+          <hr class="dashed">
+
+          <div class="line-item">
+            <div class="line_icon" id="lS30">
+              <p class="line-number">S30</p>
+            </div>
+            <div class="line-name-container">
+              <h2> Valletta - Gharghur - Mosta - Bugibba</h2>
+            </div>
+            <div class="line-time-container">
+              <h4> +30 min</h4>
+            </div>
+          </div>
+          <hr class="dashed">
+
+          <div class="line-item">
+            <div class="line_icon" id="lTD12">
+              <p class="line-number">TD12</p>
+            </div>
+            <div class="line-name-container">
+              <h2> Sliema - Mosta</h2>
+            </div>
+            <div class="line-time-container">
+              <h4> +30 min</h4>
+            </div>
+          </div>
+          <hr class="dashed">
+
+      </div>
+
+    </div>
+  </div>
 </body>
 </html>
