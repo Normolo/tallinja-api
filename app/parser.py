@@ -75,6 +75,8 @@ def _parse_minutes(display_time: str | None) -> int | None:
     m = _MINUTES_RE.match(display_time)
     if m and not m.group(1):  # exact value, no leading "+"
         return int(m.group(2))
+    # Bounds like "+30 min" (lower) or "< 2 min" (upper) are not exact values, so
+    # minutes_away stays null; the precise text is preserved in display_time.
     return None
 
 

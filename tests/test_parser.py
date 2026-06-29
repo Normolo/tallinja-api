@@ -69,6 +69,16 @@ def test_exact_following_time_kept_as_text(board_0366_html):
     assert dep.following_time == "27 min"  # exact, not a "+30 min" bound
 
 
+def test_imminent_upper_bound_time(imminent_html):
+    # An active row showing "< 2 min": live, but not an exact value.
+    _, departures = parse_board(imminent_html, "1090")
+    dep = departures[0]
+    assert dep.route == "202"
+    assert dep.realtime is True
+    assert dep.display_time == "< 2 min"
+    assert dep.minutes_away is None  # "< 2 min" is an upper bound, not exact
+
+
 def test_empty_board_is_not_an_error(empty_html):
     stop, departures = parse_board(empty_html, "9999")
     assert stop.name == "Test Stop"

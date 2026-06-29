@@ -18,6 +18,11 @@ def board_0366_html() -> str:
 
 
 @pytest.fixture
+def imminent_html() -> str:
+    return (FIXTURES / "stop_imminent.html").read_text()
+
+
+@pytest.fixture
 def empty_html() -> str:
     return (FIXTURES / "stop_empty.html").read_text()
 

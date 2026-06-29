@@ -23,7 +23,8 @@ class Departure(BaseModel):
         None,
         description=(
             "Exact minutes until departure when the board shows a precise value "
-            "(e.g. 6). Null when the board only shows a lower bound like '+30 min'."
+            "(e.g. 6), or 0 for 'Due'. Null when the board shows only a bound such "
+            "as '+30 min' (lower) or '< 2 min' (upper)."
         ),
     )
     display_time: str | None = Field(
