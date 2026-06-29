@@ -39,14 +39,19 @@ def _clean(text: str) -> str:
 
 
 def _extract_stop(soup: BeautifulSoup, stop_code: str) -> Stop:
-    """Stop name from ``.station-text h1`` (``"<name> - <code>"``)."""
+    """Stop name from ``.station-text h1`` (``"<name> - <code>"``).
+
+    The code shown on the page is canonical (the origin drops leading zeros, so a
+    request for ``0366`` renders ``"Zejtun - 366"``). We therefore strip a
+    trailing ``" - <number>"`` generically rather than matching the requested
+    code, and keep ``stop.code`` as the value the caller asked for.
+    """
     name: str | None = None
     el = soup.select_one(".station-text h1")
     if el is not None:
         text = _clean(el.get_text())
-        # Drop the trailing " - 1090" code suffix to leave just the name.
-        text = re.sub(rf"\s*[-–]\s*{re.escape(stop_code)}\s*$", "", text)
-        name = text or None
+        m = re.search(r"^(?P<name>.*?)\s*[-–]\s*\d+\s*$", text)
+        name = (m.group("name").strip() if m else text) or None
     return Stop(code=stop_code, name=name)
 
 

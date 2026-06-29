@@ -43,6 +43,23 @@ def test_alphanumeric_routes_parsed(board_html):
     assert by_route["TD12"].line_name == "Sliema - Mosta"
 
 
+def test_canonical_code_suffix_stripped_when_request_had_leading_zero(board_0366_html):
+    # Requested "0366" but the page renders the canonical "Zejtun - 366".
+    stop, departures = parse_board(board_0366_html, "0366")
+    assert stop.code == "0366"  # echoes what the caller asked for
+    assert stop.name == "Zejtun"  # trailing " - 366" stripped despite the mismatch
+    assert [d.route for d in departures] == ["81"]
+
+
+def test_exact_following_time_kept_as_text(board_0366_html):
+    _, departures = parse_board(board_0366_html, "0366")
+    dep = departures[0]
+    assert dep.realtime is True
+    assert dep.minutes_away == 9
+    assert dep.display_time == "9 min"
+    assert dep.following_time == "27 min"  # exact, not a "+30 min" bound
+
+
 def test_empty_board_is_not_an_error(empty_html):
     stop, departures = parse_board(empty_html, "9999")
     assert stop.name == "Test Stop"

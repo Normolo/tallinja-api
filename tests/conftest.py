@@ -13,6 +13,11 @@ def board_html() -> str:
 
 
 @pytest.fixture
+def board_0366_html() -> str:
+    return (FIXTURES / "stop_0366.html").read_text()
+
+
+@pytest.fixture
 def empty_html() -> str:
     return (FIXTURES / "stop_empty.html").read_text()
 
