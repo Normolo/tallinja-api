@@ -24,7 +24,9 @@ async def fetch_board_html(stop_code: str, client: httpx.AsyncClient | None = No
     try:
         resp = await client.get(settings.base_url, params={"bus_stop": stop_code})
     except httpx.HTTPError as exc:  # timeouts, DNS, connection, proxy refusals
-        raise UpstreamUnavailable(f"Failed to reach timetable origin: {exc}") from exc
+        # Some httpx errors (notably timeouts) stringify to "", so name the type.
+        reason = f"{type(exc).__name__}: {exc}".rstrip(": ")
+        raise UpstreamUnavailable(f"Failed to reach timetable origin: {reason}") from exc
     finally:
         if owns_client:
             await client.aclose()
