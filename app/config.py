@@ -46,6 +46,10 @@ class Settings(BaseSettings):
     circuit_failure_threshold: int = 4
     # How long the breaker stays open (fast-failing) before allowing a trial.
     circuit_cooldown_seconds: float = 60.0
+    # Remember a failed stop (e.g. an unknown code the origin hangs on) for this
+    # long, so repeat requests fast-fail instead of re-incurring the full timeout
+    # and stressing the breaker. Kept short so a transient blip self-heals.
+    negative_cache_ttl_seconds: float = 30.0
 
     # HTTP backend used to fetch the board:
     #   "auto"  - use the curl binary when available, else httpx

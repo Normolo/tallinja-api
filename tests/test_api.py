@@ -64,6 +64,18 @@ def test_upstream_error_returns_502():
 
 
 @respx.mock
+def test_failed_stop_is_negative_cached():
+    # Simulate the origin hanging on an unknown code (a transport error).
+    route = respx.get(settings.base_url).mock(side_effect=httpx.ConnectError("hang"))
+    first = client.get("/api/v1/stops/9990/departures")
+    second = client.get("/api/v1/stops/9990/departures")
+    assert first.status_code == 502
+    assert second.status_code == 502
+    assert "negative-cached" in second.json()["detail"]
+    assert route.call_count == 1  # second request never reached the origin
+
+
+@respx.mock
 def test_circuit_opens_after_repeated_failures():
     # Every distinct stop misses the cache and hits the (failing) origin.
     route = respx.get(settings.base_url).mock(return_value=httpx.Response(503))

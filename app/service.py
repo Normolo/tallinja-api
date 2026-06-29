@@ -21,6 +21,9 @@ _STOP_CODE_RE = re.compile(settings.stop_code_pattern)
 
 # Cache the fully-built response so repeated hits within the TTL skip fetch+parse.
 _cache: TTLCache[DeparturesResponse] = TTLCache(settings.cache_ttl_seconds)
+# Remember recent upstream failures per stop (e.g. an unknown code the origin
+# hangs on) so we fast-fail instead of re-incurring the timeout.
+_negative_cache: TTLCache[str] = TTLCache(settings.negative_cache_ttl_seconds)
 _breaker = CircuitBreaker(settings.circuit_failure_threshold, settings.circuit_cooldown_seconds)
 _rate_limiter = RateLimiter(settings.min_request_interval_seconds)
 
@@ -41,6 +44,11 @@ async def get_departures(
     if cached is not None:
         return cached.model_copy(update={"cached": True})
 
+    # A recently-failed stop fast-fails without touching the origin or the breaker.
+    failed = _negative_cache.get(code)
+    if failed is not None:
+        raise UpstreamUnavailable(f"{failed} (negative-cached)")
+
     # Fast-fail while the breaker is open, then space out the actual origin call.
     await _breaker.acquire()
     await _rate_limiter.wait()
@@ -49,8 +57,9 @@ async def get_departures(
     except StopNotFound:
         await _breaker.record_success()  # origin is healthy; this stop just doesn't exist
         raise
-    except UpstreamUnavailable:
+    except UpstreamUnavailable as exc:
         await _breaker.record_failure()
+        _negative_cache.set(code, str(exc))
         raise
     await _breaker.record_success()
 
@@ -76,6 +85,7 @@ def reset_for_tests(min_request_interval_seconds: float = 0.0) -> None:
     """Reset cache, breaker, and limiter between tests (state is module-global)."""
     global _breaker, _rate_limiter
     _cache.clear()
+    _negative_cache.clear()
     _breaker = CircuitBreaker(
         settings.circuit_failure_threshold, settings.circuit_cooldown_seconds
     )

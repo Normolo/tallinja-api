@@ -150,6 +150,10 @@ built to stay on the right side of that:
 
 - **Response cache** — per-stop, `TALLINJA_CACHE_TTL_SECONDS` (default 25s), so
   repeated hits don't reach the origin.
+- **Negative cache** — the origin *hangs* on unknown stop codes (it doesn't
+  404), so a failed stop is remembered for `TALLINJA_NEGATIVE_CACHE_TTL_SECONDS`
+  (default 30s); repeats fast-fail instead of re-incurring the timeout and
+  stressing the breaker.
 - **Rate limiter** — at least `TALLINJA_MIN_REQUEST_INTERVAL_SECONDS` (default
   1s) between origin fetches, across all stops.
 - **Circuit breaker** — after `TALLINJA_CIRCUIT_FAILURE_THRESHOLD` (default 4)
