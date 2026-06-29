@@ -24,14 +24,15 @@ def empty_html() -> str:
 
 @pytest.fixture(autouse=True)
 def _test_environment():
-    # Force the httpx backend so respx can intercept; clear the cache around each
-    # test so cached responses don't leak between cases.
+    # Force the httpx backend so respx can intercept; reset cache + breaker +
+    # rate limiter (all module-global) around each test, and disable inter-request
+    # spacing so the suite stays fast and deterministic.
     from app.config import settings
-    from app.service import clear_cache
+    from app.service import reset_for_tests
 
     previous_backend = settings.http_backend
     settings.http_backend = "httpx"
-    clear_cache()
+    reset_for_tests(min_request_interval_seconds=0.0)
     yield
     settings.http_backend = previous_backend
-    clear_cache()
+    reset_for_tests(min_request_interval_seconds=0.0)

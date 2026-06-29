@@ -6,7 +6,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from . import __version__
-from .errors import TallinjaError
+from .errors import CircuitOpen, TallinjaError
 from .models import DeparturesResponse, ErrorResponse
 from .service import get_departures
 
@@ -22,9 +22,13 @@ app = FastAPI(
 
 @app.exception_handler(TallinjaError)
 async def _handle_tallinja_error(_: Request, exc: TallinjaError) -> JSONResponse:
+    headers: dict[str, str] = {}
+    if isinstance(exc, CircuitOpen):
+        headers["Retry-After"] = str(int(exc.retry_after_seconds) + 1)
     return JSONResponse(
         status_code=exc.status_code,
         content=ErrorResponse(error=exc.error, detail=str(exc)).model_dump(),
+        headers=headers,
     )
 
 
@@ -36,7 +40,12 @@ async def health() -> dict[str, str]:
 @app.get(
     "/api/v1/stops/{stop_code}/departures",
     response_model=DeparturesResponse,
-    responses={400: {"model": ErrorResponse}, 404: {"model": ErrorResponse}, 502: {"model": ErrorResponse}},
+    responses={
+        400: {"model": ErrorResponse},
+        404: {"model": ErrorResponse},
+        502: {"model": ErrorResponse},
+        503: {"model": ErrorResponse},
+    },
     tags=["departures"],
     summary="Live departures for a bus stop",
 )

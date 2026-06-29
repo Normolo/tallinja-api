@@ -61,3 +61,19 @@ def test_upstream_error_returns_502():
     resp = client.get("/api/v1/stops/1090/departures")
     assert resp.status_code == 502
     assert resp.json()["error"] == "upstream_unavailable"
+
+
+@respx.mock
+def test_circuit_opens_after_repeated_failures():
+    # Every distinct stop misses the cache and hits the (failing) origin.
+    route = respx.get(settings.base_url).mock(return_value=httpx.Response(503))
+    threshold = settings.circuit_failure_threshold
+    for i in range(threshold):
+        assert client.get(f"/api/v1/stops/100{i}/departures").status_code == 502
+
+    # Breaker is now open: the next call fast-fails as 503 without hitting origin.
+    resp = client.get("/api/v1/stops/2000/departures")
+    assert resp.status_code == 503
+    assert resp.json()["error"] == "upstream_circuit_open"
+    assert "Retry-After" in resp.headers
+    assert route.call_count == threshold  # the open-circuit call did NOT reach origin

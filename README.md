@@ -69,8 +69,9 @@ curl http://localhost:8000/api/v1/stops/1090/departures
 > name as displayed (both termini), not a single destination.
 
 Errors share one shape: `{ "error": "<code>", "detail": "<message>" }` with
-`invalid_stop_code` (400), `stop_not_found` (404), and `upstream_unavailable` /
-`parse_error` (502).
+`invalid_stop_code` (400), `stop_not_found` (404), `upstream_unavailable` /
+`parse_error` (502), and `upstream_circuit_open` (503, with a `Retry-After`
+header — see Resilience below).
 
 ## Run it
 
@@ -140,9 +141,32 @@ curl -sS -A "Mozilla/5.0 ... Chrome/124.0 Safari/537.36" \
 pytest
 ```
 
+## Resilience
+
+The origin runs aggressive bot protection: too many requests — or even a few
+that stall connections — get the **caller's IP tarpitted**, after which *every*
+request (including a plain browser-UA curl) hangs until cooldown. The service is
+built to stay on the right side of that:
+
+- **Response cache** — per-stop, `TALLINJA_CACHE_TTL_SECONDS` (default 25s), so
+  repeated hits don't reach the origin.
+- **Rate limiter** — at least `TALLINJA_MIN_REQUEST_INTERVAL_SECONDS` (default
+  1s) between origin fetches, across all stops.
+- **Circuit breaker** — after `TALLINJA_CIRCUIT_FAILURE_THRESHOLD` (default 4)
+  consecutive upstream failures it opens for `TALLINJA_CIRCUIT_COOLDOWN_SECONDS`
+  (default 60s), fast-failing with `503 upstream_circuit_open` + `Retry-After`
+  instead of piling on more connections. It then probes with one trial request
+  before fully closing. A `404` counts as success (origin is healthy); a parse
+  failure doesn't trip it (origin answered, markup just changed).
+- **Short timeout** — `TALLINJA_REQUEST_TIMEOUT` (default 8s) so a stalled fetch
+  doesn't hold a connection long enough to look like slowloris.
+
+If you do get blocked, stop all traffic and wait for the cooldown — retrying
+extends it.
+
 ## Tests
 
 ```bash
-pytest          # parser + API (origin mocked with respx), 13 tests
+pytest          # parser, fetcher, resilience, API (origin mocked via respx)
 ruff check .
 ```

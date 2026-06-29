@@ -15,7 +15,9 @@ class Settings(BaseSettings):
     # Outgoing HTTP behaviour. The origin tarpits requests that don't look like a
     # real browser (a bare User-Agent connects but the response is withheld until
     # the read times out), so we send a full browser-like header set, not just a UA.
-    request_timeout: float = 15.0
+    # Shortened from 15s: a long timeout means a stalled request holds a
+    # connection open, which the origin's bot protection reads as slowloris.
+    request_timeout: float = 8.0
     user_agent: str = (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
         "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"
@@ -36,6 +38,14 @@ class Settings(BaseSettings):
 
     # Real-time data churns quickly, but we should not hammer the origin once per request.
     cache_ttl_seconds: float = 25.0
+
+    # Resilience — be gentle with a bot-protected origin or it IP-blocks us.
+    # Minimum spacing between consecutive origin fetches (across all stops).
+    min_request_interval_seconds: float = 1.0
+    # Consecutive upstream failures that trip the circuit breaker open.
+    circuit_failure_threshold: int = 4
+    # How long the breaker stays open (fast-failing) before allowing a trial.
+    circuit_cooldown_seconds: float = 60.0
 
     # HTTP backend used to fetch the board:
     #   "auto"  - use the curl binary when available, else httpx
