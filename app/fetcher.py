@@ -18,7 +18,7 @@ async def fetch_board_html(stop_code: str, client: httpx.AsyncClient | None = No
     owns_client = client is None
     client = client or httpx.AsyncClient(
         timeout=settings.request_timeout,
-        headers={"User-Agent": settings.user_agent},
+        headers=settings.request_headers,
         follow_redirects=True,
     )
     try:
