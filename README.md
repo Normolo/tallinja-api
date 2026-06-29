@@ -75,9 +75,17 @@ Errors share one shape: `{ "error": "<code>", "detail": "<message>" }` with
 ## Run it
 
 ```bash
-pip install -e ".[dev]"
+pip install -e .          # pure-Python; no C compiler needed
 uvicorn app.main:app --reload
 # → http://localhost:8000/docs
+```
+
+HTML parsing uses Python's built-in `html.parser` by default. For the faster
+`lxml` backend (needs a C toolchain) install the extra — the parser uses it
+automatically when present:
+
+```bash
+pip install -e ".[speed]"
 ```
 
 Configuration is via env vars (prefix `TALLINJA_`), e.g. `TALLINJA_CACHE_TTL_SECONDS=10`.

@@ -1,6 +1,15 @@
 from __future__ import annotations
 
+from bs4 import BeautifulSoup
+
 from app.parser import parse_board
+
+
+def test_stdlib_parser_handles_board_markup(board_html):
+    # The fallback backend (no lxml) must read the same structure.
+    soup = BeautifulSoup(board_html, "html.parser")
+    assert len(soup.select(".line-item")) == 11
+    assert soup.select_one(".station-text h1").get_text(strip=True) == "Naxxar - 1090"
 
 
 def test_parses_stop_name_without_code_suffix(board_html):

@@ -24,10 +24,22 @@ from __future__ import annotations
 
 import re
 
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, FeatureNotFound
 
 from .errors import ParseError
 from .models import Departure, Stop
+
+
+def _make_soup(html: str) -> BeautifulSoup:
+    """Parse with lxml when installed, else fall back to the stdlib parser.
+
+    lxml is faster but needs a C build; ``html.parser`` ships with Python, so the
+    service runs on a bare interpreter without compiling anything.
+    """
+    try:
+        return BeautifulSoup(html, "lxml")
+    except FeatureNotFound:
+        return BeautifulSoup(html, "html.parser")
 
 # Exact minutes only when there is no leading "+": "6 min" -> 6, "+30 min" -> bound.
 _MINUTES_RE = re.compile(r"^\s*(\+)?\s*(\d+)\s*min", re.IGNORECASE)
@@ -106,8 +118,8 @@ def parse_board(html: str, stop_code: str) -> tuple[Stop, list[Departure]]:
     is not an error. ``ParseError`` is raised only if the HTML can't be parsed.
     """
     try:
-        soup = BeautifulSoup(html, "lxml")
-    except Exception as exc:  # pragma: no cover - lxml rarely fails outright
+        soup = _make_soup(html)
+    except Exception as exc:  # pragma: no cover - bs4 rarely fails outright
         raise ParseError(f"Could not parse board HTML: {exc}") from exc
 
     stop = _extract_stop(soup, stop_code)
