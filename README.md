@@ -20,7 +20,7 @@ HTTP request ──▶ FastAPI ──▶ service ──▶ cache (TTL) ─▶ fe
 - **`bus_stop`** in the origin URL is the stop **code** — the number printed on
   the pole / QR sign (e.g. `1090`). It is the only input the API needs.
 - The board is **server-rendered HTML**, so no headless browser is required.
-- Responses are cached per stop for a short TTL (default 25s) so the origin
+- Responses are cached per stop for a short TTL (default 30s) so the origin
   isn't hit on every request while still feeling "live".
 
 ## Endpoints
@@ -148,8 +148,9 @@ that stall connections — get the **caller's IP tarpitted**, after which *every
 request (including a plain browser-UA curl) hangs until cooldown. The service is
 built to stay on the right side of that:
 
-- **Response cache** — per-stop, `TALLINJA_CACHE_TTL_SECONDS` (default 25s), so
-  repeated hits don't reach the origin.
+- **Response cache** — per-stop, `TALLINJA_CACHE_TTL_SECONDS` (default 30s). The
+  board refreshes itself only ~every 60s, so this is as live as the source gets
+  while keeping repeated hits off the origin.
 - **Negative cache** — the origin *hangs* on unknown stop codes (it doesn't
   404), so a failed stop is remembered for `TALLINJA_NEGATIVE_CACHE_TTL_SECONDS`
   (default 30s); repeats fast-fail instead of re-incurring the timeout and

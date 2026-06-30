@@ -36,8 +36,10 @@ class Settings(BaseSettings):
             "Upgrade-Insecure-Requests": "1",
         }
 
-    # Real-time data churns quickly, but we should not hammer the origin once per request.
-    cache_ttl_seconds: float = 25.0
+    # The origin board only refreshes ~every 60s (its own meta-refresh), so a ~30s
+    # TTL is as live as the source gets while shielding the origin from per-request
+    # hits — at most ~2 fetches per stop per minute.
+    cache_ttl_seconds: float = 30.0
 
     # Resilience — be gentle with a bot-protected origin or it IP-blocks us.
     # Minimum spacing between consecutive origin fetches (across all stops).
